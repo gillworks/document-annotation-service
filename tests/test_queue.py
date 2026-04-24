@@ -1,4 +1,5 @@
 import inspect
+from pathlib import Path
 
 from app import worker
 from app.queue import CLAIM_NEXT_JOB_SQL, retry_delay_seconds, sweep_stale_jobs
@@ -33,3 +34,16 @@ def test_worker_distinguishes_extraction_and_annotation_storage_stages() -> None
     assert source.index('"calling_llm"') < source.index("annotator.annotate")
     assert source.index('"validating_output"') < source.index("estimate_cost_usd")
     assert source.index('"storing_result"') < source.index("store_annotation")
+
+
+def test_queue_index_only_covers_claimable_jobs() -> None:
+    migration = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "202604240001_create_document_jobs.py"
+    )
+    source = migration.read_text(encoding="utf-8")
+
+    assert "postgresql_where=sa.text(\"status = 'queued'\")" in source
+    assert "status IN ('queued', 'failed')" not in source

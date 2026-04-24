@@ -90,7 +90,7 @@ def upgrade() -> None:
         "idx_document_jobs_queue",
         "document_jobs",
         ["status", "next_attempt_at", "created_at"],
-        postgresql_where=sa.text("status IN ('queued', 'failed')"),
+        postgresql_where=sa.text("status = 'queued'"),
     )
     op.create_index("idx_document_jobs_sha256", "document_jobs", ["sha256"])
 
