@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.cost import estimate_cost_usd
 from app.db import SessionLocal
 from app.extractors import ExtractionError, extract_document
+from app.logging_config import configure_logging
 from app.models import DocumentJob
 from app.queue import (
     DeterministicJobError,
@@ -23,7 +24,7 @@ from app.queue import (
     validate_claimed_file,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+configure_logging()
 logger = logging.getLogger(__name__)
 running = True
 

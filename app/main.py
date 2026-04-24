@@ -12,11 +12,13 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import check_database, get_db
-from app.file_validation import UnsupportedFileTypeError, detect_content_type
+from app.file_validation import UnsupportedFileTypeError, detect_content_type, validate_declared_content_type
+from app.logging_config import configure_logging
 from app.models import DocumentJob, JobStatus
 from app.schemas import JobCreatedResponse, JobResponse, job_to_response
 from app.storage import FileTooLargeError, save_upload
 
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +71,8 @@ async def create_document_job(
 
     try:
         stored = await save_upload(file, destination, active_settings.max_file_size_bytes)
-        detected_content_type = detect_content_type(original_filename, stored.header_bytes)
+        validate_declared_content_type(original_filename, file.content_type)
+        detected_content_type = detect_content_type(original_filename, stored.header_bytes, destination)
     except FileTooLargeError as exc:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
