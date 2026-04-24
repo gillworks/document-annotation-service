@@ -8,6 +8,7 @@ from app.annotation_schema import AnnotationResult
 from app.models import DocumentJob
 
 MAX_PROMPT_TEXT_CHARS = 24_000
+SINGLE_CALL_CITATION_WARNING = "annotator: single-call citations are LLM-claimed, not verified by tool use"
 
 
 class AnnotationError(Exception):
@@ -42,8 +43,10 @@ def build_annotation_messages(job: DocumentJob, extraction: dict[str, Any]) -> l
 
     system = (
         "You annotate business documents. Return only the requested structured annotation. "
-        "Prefer concise summaries, useful entities, important dates, and practical keywords. "
-        "Do not include raw sensitive document text unless it is necessary as a short extracted entity."
+        "Prefer concise summaries, useful entities, important dates, risks, action items, PII categories, "
+        "and practical keywords. Do not include raw sensitive document text unless it is necessary as a "
+        "short extracted entity. If you include citations, treat them as best-effort source references and "
+        "do not mark them verified; tool-based verification is available only in ANNOTATOR_MODE=agent."
     )
     user = (
         f"Filename: {job.original_filename}\n"
@@ -89,6 +92,8 @@ def repair_annotation_payload(payload: Any) -> dict[str, Any]:
     repaired["important_dates"] = list(repaired.get("important_dates") or [])
     repaired["keywords"] = list(repaired.get("keywords") or [])
     repaired["warnings"] = list(repaired.get("warnings") or [])
+    repaired["action_items"] = list(repaired.get("action_items") or [])
+    repaired["risks"] = list(repaired.get("risks") or [])
 
     metadata = repaired.get("metadata") or {}
     if not isinstance(metadata, dict):
@@ -101,10 +106,80 @@ def repair_annotation_payload(payload: Any) -> dict[str, Any]:
     }
 
     for entity in repaired["key_entities"]:
-        if isinstance(entity, dict) and "confidence" in entity:
-            try:
-                entity["confidence"] = max(0.0, min(1.0, float(entity["confidence"])))
-            except (TypeError, ValueError):
-                entity["confidence"] = 0.5
+        if isinstance(entity, dict):
+            entity["citations"] = repair_citations(entity.get("citations"))
+            if "confidence" in entity:
+                try:
+                    entity["confidence"] = clamp_confidence(entity["confidence"])
+                except (TypeError, ValueError):
+                    entity["confidence"] = 0.5
+
+    for date in repaired["important_dates"]:
+        if isinstance(date, dict):
+            date["citations"] = repair_citations(date.get("citations"))
+
+    for action_item in repaired["action_items"]:
+        if isinstance(action_item, dict):
+            action_item["citations"] = repair_citations(action_item.get("citations"))
+
+    for risk in repaired["risks"]:
+        if isinstance(risk, dict):
+            risk["citations"] = repair_citations(risk.get("citations"))
+
+    pii_detected = repaired.get("pii_detected") or {}
+    if not isinstance(pii_detected, dict):
+        pii_detected = {}
+    repaired["pii_detected"] = {
+        "present": bool(pii_detected.get("present", False)),
+        "types": list(pii_detected.get("types") or []),
+        "count": safe_int(pii_detected.get("count") or 0),
+    }
 
     return repaired
+
+
+def repair_citations(value: Any) -> list[dict[str, Any]]:
+    citations = []
+    for citation in list(value or []):
+        if not isinstance(citation, dict):
+            continue
+        repaired = {
+            "page_number": citation.get("page_number"),
+            "sheet_name": citation.get("sheet_name"),
+            "character_offset_start": citation.get("character_offset_start"),
+            "character_offset_end": citation.get("character_offset_end"),
+            "snippet": str(citation.get("snippet") or ""),
+            "confidence": 0.0,
+            "verification_status": citation.get("verification_status") or "unverified",
+        }
+        try:
+            repaired["confidence"] = clamp_confidence(citation.get("confidence", 0.0))
+        except (TypeError, ValueError):
+            repaired["confidence"] = 0.0
+        if repaired["verification_status"] not in {"verified", "unverified", "revised"}:
+            repaired["verification_status"] = "unverified"
+        citations.append(repaired)
+    return citations
+
+
+def clamp_confidence(value: Any) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def enforce_single_call_citation_provenance(result: AnnotationResult) -> AnnotationResult:
+    has_citations = False
+    for item in [*result.key_entities, *result.important_dates, *result.action_items, *result.risks]:
+        for citation in item.citations:
+            citation.verification_status = "unverified"
+            has_citations = True
+
+    if has_citations and SINGLE_CALL_CITATION_WARNING not in result.warnings:
+        result.warnings.append(SINGLE_CALL_CITATION_WARNING)
+    return result

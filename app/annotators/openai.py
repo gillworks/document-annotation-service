@@ -8,6 +8,7 @@ from app.annotators.base import (
     AnnotationError,
     Annotator,
     build_annotation_messages,
+    enforce_single_call_citation_provenance,
     validate_annotation_payload,
 )
 from app.config import Settings
@@ -35,7 +36,9 @@ class OpenAIAnnotator(Annotator):
 
         if response.output_parsed is None:
             raise AnnotationError("LLM_SCHEMA_VALIDATION_FAILED", "OpenAI response did not include parsed output.")
-        parsed = validate_annotation_payload(response.output_parsed.model_dump(mode="json"))
+        parsed = enforce_single_call_citation_provenance(
+            validate_annotation_payload(response.output_parsed.model_dump(mode="json"))
+        )
 
         usage = response_usage(response)
         return Annotation(
@@ -44,6 +47,7 @@ class OpenAIAnnotator(Annotator):
             output_tokens=usage.get("output_tokens", 0),
             usage={
                 "provider": "openai",
+                "annotator_mode": "single_call",
                 "model": self.settings.annotator_model,
                 **usage,
             },

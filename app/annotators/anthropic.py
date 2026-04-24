@@ -8,6 +8,7 @@ from app.annotators.base import (
     AnnotationError,
     Annotator,
     build_annotation_messages,
+    enforce_single_call_citation_provenance,
     validate_annotation_payload,
 )
 from app.config import Settings
@@ -50,7 +51,7 @@ class AnthropicAnnotator(Annotator):
             raise AnnotationError("UNKNOWN_WORKER_ERROR", f"Anthropic annotation failed: {exc}") from exc
 
         payload = first_tool_payload(response)
-        result = validate_annotation_payload(payload)
+        result = enforce_single_call_citation_provenance(validate_annotation_payload(payload))
         usage = response_usage(response)
         return Annotation(
             result=result,
@@ -58,6 +59,7 @@ class AnthropicAnnotator(Annotator):
             output_tokens=usage.get("output_tokens", 0),
             usage={
                 "provider": "anthropic",
+                "annotator_mode": "single_call",
                 "model": self.settings.annotator_model,
                 **usage,
             },

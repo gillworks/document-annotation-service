@@ -36,6 +36,7 @@ class MockAnnotator(Annotator):
             output_tokens=0,
             usage={
                 "provider": "mock",
+                "annotator_mode": "mock",
                 "model": "mock",
                 "estimated_cost_usd": 0.0,
             },
