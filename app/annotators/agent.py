@@ -15,9 +15,12 @@ from app.annotators.anthropic import TOOL_NAME as ANTHROPIC_TOOL_NAME
 from app.annotators.anthropic import first_tool_payload, response_usage as anthropic_response_usage
 from app.annotators.base import (
     MAX_PROMPT_TEXT_CHARS,
+    UNTRUSTED_CONTENT_INSTRUCTION,
     Annotation,
     AnnotationError,
     Annotator,
+    format_annotation_tasks,
+    render_untrusted_block,
     validate_annotation_payload,
 )
 from app.config import Settings
@@ -251,9 +254,10 @@ def build_agent_messages(
     sections: list[str],
 ) -> list[dict[str, str]]:
     metadata = extraction.get("metadata") or {}
-    tasks = ", ".join(annotation_tasks) if annotation_tasks else "default document summary, entities, dates, risks, action items, and PII categories"
+    tasks = format_annotation_tasks(annotation_tasks)
     system = (
         "You are a grounded document annotation agent. Use only the provided source document context. "
+        f"{UNTRUSTED_CONTENT_INSTRUCTION} "
         "Return a schema-valid annotation. Include citations only when the cited snippet appears verbatim "
         "in the source document context. Prefer concise exact snippets for entities, dates, risks, and "
         "action items. Do not include sensitive values in pii_detected."
@@ -263,14 +267,19 @@ def build_agent_messages(
         if context_truncated
         else "The full extracted source document context is included."
     )
+    metadata_block = "\n".join(
+        [
+            f"Filename: {job.original_filename}",
+            f"Detected content type: {job.detected_content_type}",
+            f"Extraction metadata: {metadata}",
+            f"Available sections: {sections}",
+        ]
+    )
     user = (
-        f"Filename: {job.original_filename}\n"
-        f"Detected content type: {job.detected_content_type}\n"
-        f"Annotation tasks: {tasks}\n"
-        f"Extraction metadata: {metadata}\n"
-        f"Available sections: {sections}\n\n"
+        f"{render_untrusted_block('FILE AND EXTRACTION METADATA', metadata_block)}\n\n"
+        f"{render_untrusted_block('ANNOTATION TASK HINTS', tasks)}\n\n"
         f"{truncation_note}\n\n"
-        f"Source document context:\n{context}\n\n"
+        f"{render_untrusted_block('SOURCE DOCUMENT CONTEXT', context)}\n\n"
         "Limit total citations to the strongest 8-12 snippets. "
         "Use page_number for PDF context and sheet_name for spreadsheet context."
     )

@@ -125,7 +125,7 @@ def test_agent_annotator_returns_verified_schema_valid_result(monkeypatch) -> No
     assert annotation.output_tokens == 5
     assert FakeOpenAI.last_kwargs is not None
     prompt_text = FakeOpenAI.last_kwargs["input"][1]["content"]
-    assert "Source document context:" in prompt_text
+    assert "--- BEGIN UNTRUSTED SOURCE DOCUMENT CONTEXT ---" in prompt_text
     assert "Termination for convenience requires 60 days notice." in prompt_text
 
 
