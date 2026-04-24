@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -140,11 +140,18 @@ async def create_document_job(
 
 
 @app.get("/jobs/{job_id}", response_model=JobResponse)
-def get_job(job_id: UUID, db: Annotated[Session, Depends(get_db)]) -> JobResponse:
+def get_job(
+    job_id: UUID,
+    db: Annotated[Session, Depends(get_db)],
+    include_extraction: Annotated[
+        bool,
+        Query(description="Include the full extracted text payload for debugging."),
+    ] = False,
+) -> JobResponse:
     job = db.get(DocumentJob, job_id)
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
-    return job_to_response(job)
+    return job_to_response(job, include_extraction=include_extraction)
 
 
 def resolve_idempotency_key(header_value: str | None, form_value: str | None) -> str | None:

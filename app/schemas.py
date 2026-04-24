@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SerializerFunctionWrapHandler, model_serializer
 
 from app.models import DocumentJob, JobStatus
 
@@ -32,6 +32,13 @@ class JobResponse(BaseModel):
     usage: dict[str, Any] | None = None
     error: ErrorInfo | None = None
 
+    @model_serializer(mode="wrap")
+    def omit_unrequested_extraction(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        if self.extraction is None:
+            data.pop("extraction", None)
+        return data
+
 
 def serialize_usage(job: DocumentJob) -> dict[str, Any] | None:
     usage = dict(job.usage or {})
@@ -45,7 +52,7 @@ def serialize_usage(job: DocumentJob) -> dict[str, Any] | None:
     return usage or None
 
 
-def job_to_response(job: DocumentJob) -> JobResponse:
+def job_to_response(job: DocumentJob, *, include_extraction: bool = False) -> JobResponse:
     error = None
     if job.error_code or job.error_message:
         error = ErrorInfo(
@@ -59,7 +66,7 @@ def job_to_response(job: DocumentJob) -> JobResponse:
         stage=job.stage,
         created_at=job.created_at,
         updated_at=job.updated_at,
-        extraction=job.extraction,
+        extraction=job.extraction if include_extraction else None,
         result=job.result,
         usage=serialize_usage(job),
         error=error,

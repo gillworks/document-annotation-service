@@ -87,7 +87,7 @@ curl http://localhost:8000/jobs/<job_id>
 docker compose logs -f worker
 ```
 
-The expected completed job includes `extraction`, structured annotation `result`, and `usage`.
+The expected completed job includes structured annotation `result` and `usage`. Add `?include_extraction=true` when you want the full extracted text payload for debugging.
 
 ## API
 
@@ -107,7 +107,7 @@ Response:
 
 ### `GET /jobs/{job_id}`
 
-Returns job state. In Phase 4, queued jobs should move to `completed` shortly after the worker extracts and annotates the document:
+Returns job state. In Phase 4, queued jobs should move to `completed` shortly after the worker extracts and annotates the document. The full extraction payload is omitted by default to keep status responses readable:
 
 ```json
 {
@@ -116,24 +116,6 @@ Returns job state. In Phase 4, queued jobs should move to `completed` shortly af
   "stage": "completed",
   "created_at": "2026-04-24T02:12:00Z",
   "updated_at": "2026-04-24T02:12:00Z",
-  "extraction": {
-    "schema_version": "extraction.v1",
-    "source_type": "pdf",
-    "text": "Page 1\nInvoice INV-1001...",
-    "metadata": {
-      "page_count": 1,
-      "sheet_count": null,
-      "has_tables": false
-    },
-    "pages": [
-      {
-        "page_number": 1,
-        "text": "Invoice INV-1001..."
-      }
-    ],
-    "sheets": [],
-    "warnings": []
-  },
   "result": {
     "schema_version": "1",
     "document_type": "invoice",
@@ -164,6 +146,12 @@ Returns job state. In Phase 4, queued jobs should move to `completed` shortly af
   },
   "error": null
 }
+```
+
+For debugging extraction output, request it explicitly:
+
+```bash
+curl "http://localhost:8000/jobs/<job_id>?include_extraction=true"
 ```
 
 ## Design Notes
