@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     )
     worker_id: str = "worker-1"
     worker_poll_interval_seconds: float = 1.0
+    worker_sweep_interval_seconds: float = 30.0
+    worker_stale_after_seconds: float = 10 * 60
 
     model_config = SettingsConfigDict(
         env_file=".env",
