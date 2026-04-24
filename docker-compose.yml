@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: annotations
+      POSTGRES_USER: annotations
+      POSTGRES_PASSWORD: annotations
+    # Intentionally not publishing 5432 to the host. API/worker use the
+    # compose network; add ports: ["55432:5432"] locally if psql access is needed.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U annotations -d annotations"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: alembic upgrade head
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://annotations:annotations@db:5432/annotations
+    restart: "no"
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://annotations:annotations@db:5432/annotations
+      UPLOAD_DIR: /data/uploads
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANNOTATOR_MODE: ${ANNOTATOR_MODE:-openai}
+      ANNOTATOR_MODEL: ${ANNOTATOR_MODEL:-gpt-4o-mini}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8000}
+      MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-26214400}
+    volumes:
+      - .:/app
+      - uploads:/data/uploads
+
+  worker:
+    build: .
+    command: python -m app.worker
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://annotations:annotations@db:5432/annotations
+      UPLOAD_DIR: /data/uploads
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANNOTATOR_MODE: ${ANNOTATOR_MODE:-openai}
+      ANNOTATOR_MODEL: ${ANNOTATOR_MODEL:-gpt-4o-mini}
+      WORKER_ID: ${WORKER_ID:-worker-1}
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-1}
+    volumes:
+      - .:/app
+      - uploads:/data/uploads
+
+volumes:
+  pgdata:
+  uploads:
