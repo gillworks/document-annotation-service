@@ -66,6 +66,12 @@ class DocumentJob(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     estimated_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
     usage: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    annotation_tasks: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

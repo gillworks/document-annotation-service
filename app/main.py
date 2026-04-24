@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.annotation_tasks import normalize_annotation_tasks, same_annotation_tasks
 from app.config import get_settings
 from app.db import check_database, get_db
 from app.file_validation import UnsupportedFileTypeError, detect_content_type, validate_declared_content_type
@@ -62,9 +63,11 @@ async def create_document_job(
     db: Annotated[Session, Depends(get_db)],
     idempotency_key_form: Annotated[str | None, Form(alias="idempotency_key")] = None,
     idempotency_key_header: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    annotation_tasks_form: Annotated[str | None, Form(alias="annotation_tasks")] = None,
 ) -> JobCreatedResponse:
     active_settings = get_settings()
     idempotency_key = resolve_idempotency_key(idempotency_key_header, idempotency_key_form)
+    annotation_tasks = normalize_annotation_tasks(annotation_tasks_form)
     original_filename = Path(file.filename or "upload").name
     job_id = uuid4()
     destination = upload_destination(active_settings.upload_dir, job_id, original_filename)
@@ -91,11 +94,11 @@ async def create_document_job(
         )
         if existing:
             destination.unlink(missing_ok=True)
-            if existing.sha256 == stored.sha256:
+            if existing.sha256 == stored.sha256 and same_annotation_tasks(existing, annotation_tasks):
                 return job_created_response(existing)
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Idempotency key was already used for a different file.",
+                detail="Idempotency key was already used for a different file or annotation task set.",
             )
 
     job = DocumentJob(
@@ -109,6 +112,7 @@ async def create_document_job(
         file_size_bytes=stored.file_size_bytes,
         sha256=stored.sha256,
         idempotency_key=idempotency_key,
+        annotation_tasks=annotation_tasks,
     )
 
     try:
@@ -121,11 +125,11 @@ async def create_document_job(
             existing = db.scalar(
                 select(DocumentJob).where(DocumentJob.idempotency_key == idempotency_key)
             )
-            if existing and existing.sha256 == stored.sha256:
+            if existing and existing.sha256 == stored.sha256 and same_annotation_tasks(existing, annotation_tasks):
                 return job_created_response(existing)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Idempotency key was already used for a different file.",
+            detail="Idempotency key was already used for a different file or annotation task set.",
         ) from exc
     except SQLAlchemyError as exc:
         db.rollback()

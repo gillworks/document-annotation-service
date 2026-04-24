@@ -7,9 +7,10 @@ import pytest
 class FakeDb:
     def __init__(self) -> None:
         self.added = []
+        self.scalar_result = None
 
     def scalar(self, statement):
-        return None
+        return self.scalar_result
 
     def add(self, value) -> None:
         self.added.append(value)
