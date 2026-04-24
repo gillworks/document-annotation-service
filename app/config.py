@@ -20,9 +20,7 @@ class Settings(BaseSettings):
     input_token_cost_per_1m: Decimal = Decimal("0")
     output_token_cost_per_1m: Decimal = Decimal("0")
 
-    cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:5173,http://localhost:8000"
-    )
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:5173")
     worker_id: str = "worker-1"
     worker_poll_interval_seconds: float = 1.0
     worker_sweep_interval_seconds: float = 30.0
