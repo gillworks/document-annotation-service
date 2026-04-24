@@ -58,6 +58,7 @@ class DocumentJob(Base):
     error_code: Mapped[str | None] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text)
 
+    extraction: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     schema_version: Mapped[str | None] = mapped_column(Text)
 

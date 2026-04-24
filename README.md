@@ -1,6 +1,6 @@
 # Document Annotation Service
 
-Small event-driven document annotation service scaffolded for the take-home prompt. Phase 2 implements durable queue processing: uploads are streamed to shared storage, a queued job row is committed to Postgres, and a worker claims and completes jobs asynchronously.
+Small event-driven document annotation service scaffolded for the take-home prompt. Phase 3 implements durable queue processing plus document extraction: uploads are streamed to shared storage, a queued job row is committed to Postgres, and a worker extracts normalized text/context asynchronously.
 
 ## Quick Start
 
@@ -28,14 +28,17 @@ FastAPI docs are available at http://localhost:8000/docs.
 
 ## Current Phase
 
-Implemented from `plan.md` Phase 1 and Phase 2:
+Implemented from `plan.md` Phase 1, Phase 2, and Phase 3:
 
 - FastAPI app with `POST /documents` and `GET /jobs/{job_id}`.
 - Chunked upload write with SHA-256 calculated in the same pass.
 - Postgres `document_jobs` schema managed by Alembic.
 - Postgres-as-queue worker claiming with `FOR UPDATE SKIP LOCKED`.
-- Worker lifecycle updates: `queued` -> `processing` / `validating_file` -> `storing_result` -> `completed`.
+- Worker lifecycle updates: `queued` -> `processing` / `validating_file` -> `extracting_text` -> `storing_result` -> `completed`.
 - Stale `processing` job sweeper and retry/backoff helpers.
+- PDF text extraction with page boundaries and scanned-PDF failure handling.
+- XLSX workbook extraction with sheet metadata, sample rows, headers, and table-like signals.
+- CSV extraction with delimiter detection, sample rows, row counts, and inferred column types.
 - `migrate` one-shot Compose service that waits for Postgres health.
 - API and worker services wait for migrations before starting.
 - No host Postgres port published by default.
@@ -43,7 +46,7 @@ Implemented from `plan.md` Phase 1 and Phase 2:
 - `.env.example` plus startup fail-fast for missing provider config unless `ANNOTATOR_MODE=mock`.
 - Unknown jobs return `404 {"detail":"Job not found"}`.
 
-Document extraction and annotation are still Phase 3 and Phase 4. In Phase 2, a successful worker pass validates that the stored upload exists and then marks the job `completed` with `result: null`.
+AI annotation is still Phase 4. In Phase 3, a successful worker pass stores normalized parse output in `extraction` and leaves final annotation `result` as `null`.
 
 ## API
 
@@ -63,7 +66,7 @@ Response:
 
 ### `GET /jobs/{job_id}`
 
-Returns job state. In Phase 2, queued jobs should move to `completed` shortly after the worker claims them:
+Returns job state. In Phase 3, queued jobs should move to `completed` shortly after the worker extracts the document:
 
 ```json
 {
@@ -72,6 +75,24 @@ Returns job state. In Phase 2, queued jobs should move to `completed` shortly af
   "stage": "completed",
   "created_at": "2026-04-24T02:12:00Z",
   "updated_at": "2026-04-24T02:12:00Z",
+  "extraction": {
+    "schema_version": "extraction.v1",
+    "source_type": "pdf",
+    "text": "Page 1\nInvoice INV-1001...",
+    "metadata": {
+      "page_count": 1,
+      "sheet_count": null,
+      "has_tables": false
+    },
+    "pages": [
+      {
+        "page_number": 1,
+        "text": "Invoice INV-1001..."
+      }
+    ],
+    "sheets": [],
+    "warnings": []
+  },
   "result": null,
   "usage": null,
   "error": null

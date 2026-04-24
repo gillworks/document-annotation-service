@@ -94,6 +94,16 @@ def complete_job(db: Session, job_id: UUID) -> None:
     db.commit()
 
 
+def store_extraction(db: Session, job_id: UUID, extraction: dict) -> None:
+    job = db.get(DocumentJob, job_id)
+    if job is None:
+        db.rollback()
+        return
+
+    job.extraction = extraction
+    db.commit()
+
+
 def fail_job(db: Session, job_id: UUID, code: str, message: str) -> None:
     db.execute(
         text(

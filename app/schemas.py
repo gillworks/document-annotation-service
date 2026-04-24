@@ -27,6 +27,7 @@ class JobResponse(BaseModel):
     stage: str
     created_at: datetime
     updated_at: datetime
+    extraction: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     usage: dict[str, Any] | None = None
     error: ErrorInfo | None = None
@@ -58,6 +59,7 @@ def job_to_response(job: DocumentJob) -> JobResponse:
         stage=job.stage,
         created_at=job.created_at,
         updated_at=job.updated_at,
+        extraction=job.extraction,
         result=job.result,
         usage=serialize_usage(job),
         error=error,

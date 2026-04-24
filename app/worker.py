@@ -6,17 +6,19 @@ from uuid import UUID
 
 from app.config import get_settings
 from app.db import SessionLocal
+from app.extractors import ExtractionError, extract_document
+from app.models import DocumentJob
 from app.queue import (
     DeterministicJobError,
     claim_next_job,
     complete_job,
     fail_job,
     retry_or_fail_job,
+    store_extraction,
     sweep_stale_jobs,
     update_job_stage,
     validate_claimed_file,
 )
-from app.models import DocumentJob
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -93,12 +95,28 @@ def process_claimed_job(job_id: UUID) -> None:
 
             update_job_stage(db, job.id, "validating_file")
             validate_claimed_file(job)
+            update_job_stage(db, job.id, "extracting_text")
+            extraction = extract_document(
+                job.storage_path,
+                job.detected_content_type,
+                original_filename=job.original_filename,
+            )
 
-        with SessionLocal() as db:
             update_job_stage(db, job_id, "storing_result")
+            store_extraction(db, job_id, extraction.model_dump(mode="json"))
             complete_job(db, job_id)
 
         logger.info("completed job", extra={"job_id": str(job_id)})
+    except ExtractionError as exc:
+        try:
+            with SessionLocal() as db:
+                fail_job(db, job_id, exc.code, exc.message)
+            logger.warning(
+                "failed job during extraction",
+                extra={"job_id": str(job_id), "error_code": exc.code},
+            )
+        except Exception:
+            logger.exception("failed to persist extraction failure", extra={"job_id": str(job_id)})
     except DeterministicJobError as exc:
         try:
             with SessionLocal() as db:

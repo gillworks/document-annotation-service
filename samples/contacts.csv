@@ -1,0 +1,4 @@
+name,email,company,last_contacted,score
+Ada Lovelace,ada@example.com,Analytical Engines LLC,2026-03-12,98
+Grace Hopper,grace@example.com,Compiler Labs,2026-03-18,95
+Katherine Johnson,katherine@example.com,Orbital Analytics,2026-03-22,99
