@@ -108,7 +108,7 @@ def process_claimed_job(job_id: UUID, annotator: Annotator) -> None:
                 original_filename=job.original_filename,
             )
 
-            update_job_stage(db, job_id, "storing_result")
+            update_job_stage(db, job_id, "storing_extraction")
             store_extraction(db, job_id, extraction.model_dump(mode="json"))
 
             update_job_stage(db, job_id, "calling_llm")

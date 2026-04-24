@@ -35,7 +35,7 @@ Implemented from `plan.md` Phase 1 through Phase 5 polish:
 - Chunked upload write with SHA-256 calculated in the same pass.
 - Postgres `document_jobs` schema managed by Alembic.
 - Postgres-as-queue worker claiming with `FOR UPDATE SKIP LOCKED`.
-- Worker lifecycle updates: `queued` -> `processing` / `validating_file` -> `extracting_text` -> `calling_llm` -> `validating_output` -> `storing_result` -> `completed`.
+- Worker lifecycle updates: `queued` -> `processing` / `validating_file` -> `extracting_text` -> `storing_extraction` -> `calling_llm` -> `validating_output` -> `storing_result` -> `completed`.
 - Stale `processing` job sweeper and retry/backoff helpers.
 - PDF text extraction with page boundaries and scanned-PDF failure handling.
 - XLSX workbook extraction with sheet metadata, sample rows, headers, and table-like signals.
