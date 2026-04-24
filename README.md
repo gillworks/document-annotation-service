@@ -1,6 +1,6 @@
 # Document Annotation Service
 
-Small event-driven document annotation service scaffolded for the take-home prompt. Phase 4 implements durable queue processing, document extraction, and structured AI annotation: uploads are streamed to shared storage, a queued job row is committed to Postgres, and a worker extracts and annotates the document asynchronously.
+Small event-driven document annotation service scaffolded for the take-home prompt. It implements durable queue processing, document extraction, structured AI annotation, and an optional agent mode for cited annotations: uploads are streamed to shared storage, a queued job row is committed to Postgres, and a worker extracts and annotates the document asynchronously.
 
 ## Quick Start
 
@@ -8,7 +8,8 @@ Prereqs: Docker Desktop or Docker Engine with Compose v2.
 
 ```bash
 cp .env.example .env
-# Either set OPENAI_API_KEY in .env, or set ANNOTATOR_MODE=mock for keyless local runs.
+# Either set the API key for ANNOTATOR_PROVIDER, or set ANNOTATOR_MODE=mock for keyless local runs.
+# Set ANNOTATOR_MODE=agent for grounded, cited annotations.
 docker compose up
 ```
 
@@ -29,7 +30,7 @@ Postgres is available for local GUI clients on `localhost:55432` with database/u
 
 ## Current Phase
 
-Implemented from `plan.md` Phase 1 through Phase 5 polish:
+Implemented from `plan.md` Phase 1 through the primary Phase 5 stretch:
 
 - FastAPI app with `POST /documents` and `GET /jobs/{job_id}`.
 - Chunked upload write with SHA-256 calculated in the same pass.
@@ -41,8 +42,9 @@ Implemented from `plan.md` Phase 1 through Phase 5 polish:
 - XLSX workbook extraction with sheet metadata, sample rows, headers, and table-like signals.
 - CSV extraction with delimiter detection, sample rows, row counts, and inferred column types.
 - Pydantic annotation schema with broad entity types and structured result validation.
-- `mock`, `openai`, and `anthropic` annotator implementations behind one worker interface.
+- `mock`, `single_call`, and `agent` strategies with OpenAI or Anthropic provider selection.
 - Deterministic mock annotations for keyless local demos and hermetic tests.
+- LangGraph-backed agent mode with deterministic document tools, cited annotations, citation verification, and per-step structured logs.
 - Usage and configurable estimated-cost accounting on completed annotation jobs.
 - Magic-byte/file-container validation for PDFs, XLSX workbooks, and CSV text.
 - JSON structured application and worker logs.
@@ -54,7 +56,38 @@ Implemented from `plan.md` Phase 1 through Phase 5 polish:
 - `.env.example` plus startup fail-fast for missing provider config unless `ANNOTATOR_MODE=mock`.
 - Unknown jobs return `404 {"detail":"Job not found"}`.
 
-Use `ANNOTATOR_MODE=mock` to run the full extraction and annotation pipeline without a provider key or network cost. Provider modes fail fast on startup if the relevant API key is missing.
+Use `ANNOTATOR_MODE=mock` to run the full extraction and annotation pipeline without a provider key or network cost. Non-mock modes fail fast on startup if the selected provider key is missing. Use `ANNOTATOR_PROVIDER=openai` with `OPENAI_API_KEY`, or `ANNOTATOR_PROVIDER=anthropic` with `ANTHROPIC_API_KEY`.
+
+## Agent Mode
+
+`ANNOTATOR_MODE` controls the annotation strategy:
+
+- `single_call`: one schema-constrained provider call after extraction.
+- `agent`: LangGraph `plan -> act -> verify -> finalize` flow.
+- `mock`: deterministic local annotation with no provider key.
+
+`ANNOTATOR_PROVIDER` controls the model backend for non-mock modes:
+
+- `openai`
+- `anthropic`
+
+Single-call mode may populate best-effort risks, action items, PII categories, and citations, but any citation it emits is forced to `verification_status: "unverified"` and a warning is added because no document tool verified it. Agent mode drafts from the extracted document context, then uses deterministic document tools to verify citations:
+
+- `get_page(page_number)` returns PDF page text.
+- `list_sections()` returns page labels or sheet names.
+- `get_sheet_sample(sheet_name, rows)` returns bounded spreadsheet samples.
+
+The agent does not browse the web and does not write to the database directly. The worker remains responsible for persistence after the agent emits a schema-valid result. Agent mode enforces a citation-verification cap, applies `LLM_TIMEOUT_SECONDS` to the full run, validates the final output with the same Pydantic schema as other modes, and logs each verification step with `job_id`, `agent_step`, `tool`, `tool_args`, `duration_ms`, and citation verification status. Retrieval/RAG is intentionally deferred to Phase 6.
+
+Every stored annotation includes `usage.provider` and `usage.annotator_mode` for provenance. Agent mode is the only path that may persist `verification_status: "verified"` or `"revised"`.
+
+You can bias agent output with upload-time tasks:
+
+```bash
+curl -F "file=@samples/service_agreement.pdf" \
+  -F "annotation_tasks=risks,payment_terms,parties" \
+  http://localhost:8000/documents
+```
 
 ## Samples
 
@@ -93,7 +126,7 @@ The expected completed job includes structured annotation `result` and `usage`. 
 
 ### `POST /documents`
 
-Accepts multipart upload. Optional idempotency can be passed as `Idempotency-Key` header or `idempotency_key` form field.
+Accepts multipart upload. Optional idempotency can be passed as `Idempotency-Key` header or `idempotency_key` form field. Agent mode can also use optional `annotation_tasks`, a comma-separated form field such as `risks,payment_terms,parties`.
 
 Response:
 
@@ -107,7 +140,7 @@ Response:
 
 ### `GET /jobs/{job_id}`
 
-Returns job state. In Phase 4, queued jobs should move to `completed` shortly after the worker extracts and annotates the document. The full extraction payload is omitted by default to keep status responses readable:
+Returns job state. In the current flow, queued jobs should move to `completed` shortly after the worker extracts and annotates the document. The full extraction payload is omitted by default to keep status responses readable:
 
 ```json
 {
@@ -124,10 +157,18 @@ Returns job state. In Phase 4, queued jobs should move to `completed` shortly af
       {
         "name": "invoice.pdf",
         "type": "filename",
-        "confidence": 1.0
+        "confidence": 1.0,
+        "citations": []
       }
     ],
     "important_dates": [],
+    "action_items": [],
+    "risks": [],
+    "pii_detected": {
+      "present": false,
+      "types": [],
+      "count": 0
+    },
     "keywords": ["invoice"],
     "metadata": {
       "detected_language": "en",
@@ -139,6 +180,7 @@ Returns job state. In Phase 4, queued jobs should move to `completed` shortly af
   },
   "usage": {
     "provider": "mock",
+    "annotator_mode": "mock",
     "model": "mock",
     "input_tokens": 0,
     "output_tokens": 0,
@@ -161,12 +203,13 @@ curl "http://localhost:8000/jobs/<job_id>?include_extraction=true"
 - Files are stored outside the web root in `UPLOAD_DIR`.
 - Content type detection is intentionally small for Phase 1 and supports `.pdf`, `.xlsx`, and `.csv`.
 - `ANNOTATOR_MODE=mock` is available so reviewers can boot the stack without a provider key.
+- `ANNOTATOR_MODE` and `ANNOTATOR_PROVIDER` are separate so either provider can back either single-call or agent execution.
 
 ## Tradeoffs
 
 - **Postgres-as-queue:** keeps enqueueing atomic with job creation and avoids a Redis/Celery dependency for the take-home. At higher throughput, this could move to SQS/Pub/Sub/Kafka with an outbox pattern.
 - **Local shared volume:** simple reviewer setup and proves API/worker decoupling. Production should move uploads to object storage with encryption, lifecycle policy, and malware scanning.
-- **Bounded structured workflow:** the worker uses extraction tools plus one schema-enforced annotation call instead of an open-ended agent loop. This keeps latency, cost, and failure handling easier to reason about.
+- **Bounded structured workflow by default:** the standard annotators use extraction tools plus one schema-enforced annotation call for latency, cost, and simpler failure handling. `agent` mode is a deliberate second strategy when grounded citations justify the extra steps.
 - **Mock annotator:** makes the full pipeline deterministic and zero-cost locally. Real provider behavior still needs evals before production use.
 - **Flexible JSONB result storage:** speeds iteration on schemas for the take-home. Production search/reporting may warrant normalized annotation tables or a separate analytics index.
 
