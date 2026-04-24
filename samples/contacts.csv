@@ -1,4 +1,26 @@
-name,email,company,last_contacted,score
-Ada Lovelace,ada@example.com,Analytical Engines LLC,2026-03-12,98
-Grace Hopper,grace@example.com,Compiler Labs,2026-03-18,95
-Katherine Johnson,katherine@example.com,Orbital Analytics,2026-03-22,99
+First Name,Last Name,Email,Phone,Company,Role,Department,City,State,LinkedIn
+Sarah,Mitchell,sarah.mitchell@example.com,+1 415 555 0101,Lumina Technologies,Chief Technology Officer,Engineering,San Francisco,CA,linkedin.com/in/sample-sarah-mitchell
+James,Thornton,j.thornton@example.net,+1 212 555 0102,Vanguard Financial Services,Senior Portfolio Manager,Finance,New York,NY,linkedin.com/in/sample-james-thornton
+Priya,Ramanathan,priya.r@example.org,+1 617 555 0103,Nova Health Systems,Director of Operations,Operations,Boston,MA,linkedin.com/in/sample-priya-ramanathan
+Carlos,Mendez,cmendez@example.com,+1 512 555 0104,BrightPath Analytics,Data Science Lead,Analytics,Austin,TX,linkedin.com/in/sample-carlos-mendez
+Emily,Nakamura,emily.nakamura@example.net,+1 206 555 0105,Crestline Media Group,VP of Marketing,Marketing,Seattle,WA,linkedin.com/in/sample-emily-nakamura
+David,Okonkwo,d.okonkwo@example.org,+1 312 555 0106,Steelbridge Consulting,Managing Partner,Executive,Chicago,IL,linkedin.com/in/sample-david-okonkwo
+Rachel,Goldstein,rachel.g@example.com,+1 202 555 0107,Apex Legal Partners,Senior Associate,Legal,Washington,DC,linkedin.com/in/sample-rachel-goldstein
+Michael,Brennan,mbrennan@example.net,+1 303 555 0108,TerraForge Industries,Plant Operations Manager,Manufacturing,Denver,CO,linkedin.com/in/sample-michael-brennan
+Aisha,Patel,aisha.patel@example.org,+1 650 555 0109,QuantumLeap AI,Machine Learning Engineer,Engineering,Palo Alto,CA,linkedin.com/in/sample-aisha-patel
+Thomas,Eriksson,t.eriksson@example.com,+1 612 555 0110,Nordic Supply Chain Co.,Logistics Coordinator,Supply Chain,Minneapolis,MN,linkedin.com/in/sample-thomas-eriksson
+Jennifer,Morales,jmorales@example.net,+1 305 555 0111,Suncoast Development Group,Project Manager,Real Estate,Miami,FL,linkedin.com/in/sample-jennifer-morales
+Kevin,O'Brien,kevin.obrien@example.org,+1 503 555 0112,Red Cedar Technologies,Full Stack Developer,Engineering,Portland,OR,linkedin.com/in/sample-kevin-obrien
+Lisa,Chang,l.chang@example.com,+1 213 555 0113,Horizon Education Foundation,Program Director,Education,Los Angeles,CA,linkedin.com/in/sample-lisa-chang
+Robert,Harrington,rharrington@example.net,+1 646 555 0114,Northwind Traders LLC,VP of Operations,Operations,New York,NY,linkedin.com/in/sample-robert-harrington
+Samantha,Reeves,s.reeves@example.org,+1 704 555 0115,Blue Ridge Health Partners,Clinical Research Manager,Research,Charlotte,NC,linkedin.com/in/sample-samantha-reeves
+Daniel,Kowalski,dkowalski@example.com,+1 414 555 0116,Precision Manufacturing Inc.,Quality Assurance Director,Manufacturing,Milwaukee,WI,linkedin.com/in/sample-daniel-kowalski
+Maria,Santos,maria.santos@example.net,+1 469 555 0117,Vista CRM Solutions,Customer Success Manager,Sales,Dallas,TX,linkedin.com/in/sample-maria-santos
+Andrew,Fitzpatrick,a.fitz@example.org,+1 415 555 0118,Cascade Capital Partners,Investment Analyst,Finance,San Francisco,CA,linkedin.com/in/sample-andrew-fitzpatrick
+Natalie,Dubois,ndubois@example.com,+1 504 555 0119,Artisan Foods Collective,Brand Strategist,Marketing,New Orleans,LA,linkedin.com/in/sample-natalie-dubois
+Christopher,Yamamoto,c.yamamoto@example.net,+1 808 555 0120,Pacific Aerospace Corp.,Systems Engineer,Engineering,Honolulu,HI,linkedin.com/in/sample-christopher-yamamoto
+Olivia,Hartwell,o.hartwell@example.org,+1 615 555 0121,Summit HR Solutions,Talent Acquisition Lead,Human Resources,Nashville,TN,linkedin.com/in/sample-olivia-hartwell
+Marcus,Webb,mwebb@example.com,+1 571 555 0122,Ironclad Security Group,Cybersecurity Analyst,IT Security,Arlington,VA,linkedin.com/in/sample-marcus-webb
+Catherine,Nguyen,c.nguyen@example.net,+1 404 555 0123,Emerald Architecture Studio,Senior Architect,Design,Atlanta,GA,linkedin.com/in/sample-catherine-nguyen
+Benjamin,Cross,bcross@example.org,+1 901 555 0124,Atlas Logistics Network,Fleet Manager,Logistics,Memphis,TN,linkedin.com/in/sample-benjamin-cross
+Hannah,Larson,h.larson@example.com,+1 720 555 0125,Pine Grove Ventures,Associate Partner,Investments,Boulder,CO,linkedin.com/in/sample-hannah-larson
