@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
@@ -101,6 +103,29 @@ def store_extraction(db: Session, job_id: UUID, extraction: dict) -> None:
         return
 
     job.extraction = extraction
+    db.commit()
+
+
+def store_annotation(
+    db: Session,
+    job_id: UUID,
+    result: dict[str, Any],
+    usage: dict[str, Any],
+    input_tokens: int,
+    output_tokens: int,
+    estimated_cost_usd: Decimal,
+) -> None:
+    job = db.get(DocumentJob, job_id)
+    if job is None:
+        db.rollback()
+        return
+
+    job.result = result
+    job.schema_version = str(result.get("schema_version") or "1")
+    job.usage = usage
+    job.input_tokens = input_tokens
+    job.output_tokens = output_tokens
+    job.estimated_cost_usd = estimated_cost_usd
     db.commit()
 
 

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -15,6 +16,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     annotator_mode: Literal["openai", "anthropic", "mock"] = "openai"
     annotator_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 60.0
+    input_token_cost_per_1m: Decimal = Decimal("0")
+    output_token_cost_per_1m: Decimal = Decimal("0")
 
     cors_origins: str = Field(
         default="http://localhost:3000,http://localhost:5173,http://localhost:8000"

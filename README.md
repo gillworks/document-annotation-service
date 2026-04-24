@@ -1,6 +1,6 @@
 # Document Annotation Service
 
-Small event-driven document annotation service scaffolded for the take-home prompt. Phase 3 implements durable queue processing plus document extraction: uploads are streamed to shared storage, a queued job row is committed to Postgres, and a worker extracts normalized text/context asynchronously.
+Small event-driven document annotation service scaffolded for the take-home prompt. Phase 4 implements durable queue processing, document extraction, and structured AI annotation: uploads are streamed to shared storage, a queued job row is committed to Postgres, and a worker extracts and annotates the document asynchronously.
 
 ## Quick Start
 
@@ -28,17 +28,21 @@ FastAPI docs are available at http://localhost:8000/docs.
 
 ## Current Phase
 
-Implemented from `plan.md` Phase 1, Phase 2, and Phase 3:
+Implemented from `plan.md` Phase 1 through Phase 4:
 
 - FastAPI app with `POST /documents` and `GET /jobs/{job_id}`.
 - Chunked upload write with SHA-256 calculated in the same pass.
 - Postgres `document_jobs` schema managed by Alembic.
 - Postgres-as-queue worker claiming with `FOR UPDATE SKIP LOCKED`.
-- Worker lifecycle updates: `queued` -> `processing` / `validating_file` -> `extracting_text` -> `storing_result` -> `completed`.
+- Worker lifecycle updates: `queued` -> `processing` / `validating_file` -> `extracting_text` -> `calling_llm` -> `validating_output` -> `storing_result` -> `completed`.
 - Stale `processing` job sweeper and retry/backoff helpers.
 - PDF text extraction with page boundaries and scanned-PDF failure handling.
 - XLSX workbook extraction with sheet metadata, sample rows, headers, and table-like signals.
 - CSV extraction with delimiter detection, sample rows, row counts, and inferred column types.
+- Pydantic annotation schema with broad entity types and structured result validation.
+- `mock`, `openai`, and `anthropic` annotator implementations behind one worker interface.
+- Deterministic mock annotations for keyless local demos and hermetic tests.
+- Usage and configurable estimated-cost accounting on completed annotation jobs.
 - `migrate` one-shot Compose service that waits for Postgres health.
 - API and worker services wait for migrations before starting.
 - No host Postgres port published by default.
@@ -46,7 +50,7 @@ Implemented from `plan.md` Phase 1, Phase 2, and Phase 3:
 - `.env.example` plus startup fail-fast for missing provider config unless `ANNOTATOR_MODE=mock`.
 - Unknown jobs return `404 {"detail":"Job not found"}`.
 
-AI annotation is still Phase 4. In Phase 3, a successful worker pass stores normalized parse output in `extraction` and leaves final annotation `result` as `null`.
+Use `ANNOTATOR_MODE=mock` to run the full extraction and annotation pipeline without a provider key or network cost. Provider modes fail fast on startup if the relevant API key is missing.
 
 ## API
 
@@ -66,7 +70,7 @@ Response:
 
 ### `GET /jobs/{job_id}`
 
-Returns job state. In Phase 3, queued jobs should move to `completed` shortly after the worker extracts the document:
+Returns job state. In Phase 4, queued jobs should move to `completed` shortly after the worker extracts and annotates the document:
 
 ```json
 {
@@ -93,8 +97,34 @@ Returns job state. In Phase 3, queued jobs should move to `completed` shortly af
     "sheets": [],
     "warnings": []
   },
-  "result": null,
-  "usage": null,
+  "result": {
+    "schema_version": "1",
+    "document_type": "invoice",
+    "summary": "Synthetic invoice annotation for invoice.pdf: ...",
+    "key_entities": [
+      {
+        "name": "invoice.pdf",
+        "type": "filename",
+        "confidence": 1.0
+      }
+    ],
+    "important_dates": [],
+    "keywords": ["invoice"],
+    "metadata": {
+      "detected_language": "en",
+      "page_count": 1,
+      "sheet_count": null,
+      "has_tables": true
+    },
+    "warnings": ["annotator: mock mode - result is synthetic"]
+  },
+  "usage": {
+    "provider": "mock",
+    "model": "mock",
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "estimated_cost_usd": 0.0
+  },
   "error": null
 }
 ```
