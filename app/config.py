@@ -6,6 +6,9 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+AnnotatorMode = Literal["single_call", "agent", "mock"]
+AnnotatorProvider = Literal["openai", "anthropic"]
+
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://annotations:annotations@localhost:5432/annotations"
@@ -14,7 +17,8 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
-    annotator_mode: Literal["openai", "anthropic", "mock"] = "openai"
+    annotator_mode: AnnotatorMode = "single_call"
+    annotator_provider: AnnotatorProvider = "openai"
     annotator_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 60.0
     input_token_cost_per_1m: Decimal = Decimal("0")
@@ -37,14 +41,16 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     def validate_provider_config(self) -> None:
-        if self.annotator_mode == "openai" and not self.openai_api_key:
+        if self.annotator_mode == "mock":
+            return
+        if self.annotator_provider == "openai" and not self.openai_api_key:
             raise RuntimeError(
-                "OPENAI_API_KEY is required unless ANNOTATOR_MODE=mock. "
+                "OPENAI_API_KEY is required when ANNOTATOR_PROVIDER=openai and ANNOTATOR_MODE is not mock. "
                 "Copy .env.example to .env and either set OPENAI_API_KEY or set ANNOTATOR_MODE=mock."
             )
-        if self.annotator_mode == "anthropic" and not self.anthropic_api_key:
+        if self.annotator_provider == "anthropic" and not self.anthropic_api_key:
             raise RuntimeError(
-                "ANTHROPIC_API_KEY is required when ANNOTATOR_MODE=anthropic. "
+                "ANTHROPIC_API_KEY is required when ANNOTATOR_PROVIDER=anthropic and ANNOTATOR_MODE is not mock. "
                 "Copy .env.example to .env and either set ANTHROPIC_API_KEY or set ANNOTATOR_MODE=mock."
             )
 

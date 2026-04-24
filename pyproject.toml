@@ -11,6 +11,7 @@ dependencies = [
   "alembic>=1.13.2",
   "anthropic>=0.49.0",
   "fastapi>=0.111.0",
+  "langgraph>=0.2.60",
   "openpyxl>=3.1.5",
   "openai>=1.68.0",
   "psycopg[binary]>=3.2.1",

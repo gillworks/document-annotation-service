@@ -6,15 +6,23 @@ from app.config import Settings
 def create_annotator(settings: Settings) -> Annotator:
     if settings.annotator_mode == "mock":
         return MockAnnotator()
-    if settings.annotator_mode == "openai":
-        from app.annotators.openai import OpenAIAnnotator
+    if settings.annotator_mode == "single_call":
+        if settings.annotator_provider == "openai":
+            from app.annotators.openai import OpenAIAnnotator
 
-        return OpenAIAnnotator(settings)
-    if settings.annotator_mode == "anthropic":
-        from app.annotators.anthropic import AnthropicAnnotator
+            return OpenAIAnnotator(settings)
+        if settings.annotator_provider == "anthropic":
+            from app.annotators.anthropic import AnthropicAnnotator
 
-        return AnthropicAnnotator(settings)
-    raise AnnotationError("UNKNOWN_WORKER_ERROR", f"Unsupported annotator mode {settings.annotator_mode!r}")
+            return AnthropicAnnotator(settings)
+    if settings.annotator_mode == "agent":
+        from app.annotators.agent import AgentAnnotator
+
+        return AgentAnnotator(settings)
+    raise AnnotationError(
+        "UNKNOWN_WORKER_ERROR",
+        f"Unsupported annotator mode/provider {settings.annotator_mode!r}/{settings.annotator_provider!r}",
+    )
 
 
 __all__ = [

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.config import get_settings
+from app.config import Settings
 
 
 def test_compose_mounts_uploads_volume_into_api_and_worker() -> None:
@@ -39,7 +39,7 @@ def test_compose_mounts_uploads_volume_into_api_and_worker() -> None:
 
 
 def test_upload_dir_supports_shared_volume_read_write(tmp_path: Path) -> None:
-    settings = get_settings()
+    settings = Settings(_env_file=None)
     upload_dir = settings.upload_dir
 
     if str(upload_dir) == "/data/uploads" and not upload_dir.exists():
