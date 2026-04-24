@@ -5,8 +5,10 @@ services:
       POSTGRES_DB: annotations
       POSTGRES_USER: annotations
       POSTGRES_PASSWORD: annotations
-    # Intentionally not publishing 5432 to the host. API/worker use the
-    # compose network; add ports: ["55432:5432"] locally if psql access is needed.
+    # Published on 55432 instead of 5432 so reviewers can inspect the DB
+    # locally without colliding with a host Postgres install.
+    ports:
+      - "55432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
